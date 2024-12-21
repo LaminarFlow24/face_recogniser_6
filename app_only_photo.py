@@ -8,7 +8,7 @@ from huggingface_hub import hf_hub_download
 
 # Define the Hugging Face repository details
 REPO_ID = "Yashas2477/SE2_og"  # Replace with your Hugging Face repository
-FILENAME = "face_recogniser_out_80.pkl"  # Replace with your model filename
+FILENAME = "face_recogniser_out_75.pkl"  # Replace with your model filename
 
 # Cache the model download
 @st.cache_data
