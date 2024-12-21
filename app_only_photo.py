@@ -1,8 +1,7 @@
 import streamlit as st
-import cv2
 import numpy as np
 import joblib
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from face_recognition import preprocessing
 from huggingface_hub import hf_hub_download
 
@@ -44,17 +43,15 @@ st.title("Live Face Recognition")
 st.write("This app performs face recognition on webcam images.")
 
 # Helper function to process and predict faces
-def process_frame(pil_img):
+def process_image(pil_img):
     pil_img = preprocess(pil_img)
     pil_img = pil_img.convert('RGB')
 
     # Predict faces
     faces = face_recogniser(pil_img)
 
-    # Convert PIL image to OpenCV format
-    frame = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-
-    # Annotate the frame with bounding boxes and labels
+    # Draw bounding boxes and labels
+    draw = ImageDraw.Draw(pil_img)
     for face in faces:
         bb = face.bb._asdict()
         top_left = (int(bb['left']), int(bb['top']))
@@ -62,15 +59,15 @@ def process_frame(pil_img):
         label = face.top_prediction.label
         confidence = face.top_prediction.confidence
 
-        # Draw bounding box and label on the frame
-        color = (0, 255, 0) if label != "Unknown" else (0, 0, 255)  # Green for known, red for unknown
-        cv2.rectangle(frame, top_left, bottom_right, color, 2)
-        cv2.putText(
-            frame, f"{label} ({confidence:.2f})", (top_left[0], top_left[1] - 10),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1
-        )
+        # Define colors and draw bounding box
+        color = "green" if label != "Unknown" else "red"  # Green for known, red for unknown
+        draw.rectangle([top_left, bottom_right], outline=color, width=2)
 
-    return frame
+        # Draw label and confidence
+        text = f"{label} ({confidence:.2f})"
+        draw.text((top_left[0], top_left[1] - 10), text, fill=color)
+
+    return pil_img
 
 # Capture image using Streamlit's webcam input
 image_data = st.camera_input("Take a photo for face recognition")
@@ -79,8 +76,8 @@ if image_data:
     # Convert the uploaded image to a PIL Image
     pil_image = Image.open(image_data)
 
-    # Process the frame for face recognition
-    annotated_frame = process_frame(pil_image)
+    # Process the image for face recognition
+    annotated_image = process_image(pil_image)
 
-    # Display the annotated frame in Streamlit
-    st.image(cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB), channels="RGB")
+    # Display the annotated image in Streamlit
+    st.image(annotated_image, caption="Annotated Image", use_column_width=True)
