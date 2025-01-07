@@ -89,4 +89,4 @@ if image_data:
     # Display prediction output below the image
     st.write("**Face Recognition Output:**")
     for detail in output_details:
-        st.title(f" {detail['Label']}, Confidence: {detail['Confidence']:.2f}")
+        st.title(f" {detail['Label']}")
