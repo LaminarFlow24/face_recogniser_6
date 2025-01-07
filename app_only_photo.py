@@ -81,4 +81,4 @@ if image_data:
 
     # Display the annotated image in Streamlit
     st.image(annotated_image, caption="Annotated Image", use_column_width=True)
-    st.write(label)
+    
