@@ -49,6 +49,7 @@ def process_image(pil_img):
 
     # Predict faces
     faces = face_recogniser(pil_img)
+    output_details = []
 
     # Draw bounding boxes and labels
     draw = ImageDraw.Draw(pil_img)
@@ -67,7 +68,10 @@ def process_image(pil_img):
         text = f"{label} ({confidence:.2f})"
         draw.text((top_left[0], top_left[1] - 10), text, fill=color)
 
-    return pil_img
+        # Store face details for display
+        output_details.append({"Label": label, "Confidence": confidence})
+
+    return pil_img, output_details
 
 # Capture image using Streamlit's webcam input
 image_data = st.camera_input("Take a photo for face recognition")
@@ -77,8 +81,12 @@ if image_data:
     pil_image = Image.open(image_data)
 
     # Process the image for face recognition
-    annotated_image = process_image(pil_image)
+    annotated_image, output_details = process_image(pil_image)
 
     # Display the annotated image in Streamlit
     st.image(annotated_image, caption="Annotated Image", use_column_width=True)
-    
+
+    # Display prediction output below the image
+    st.write("**Face Recognition Output:**")
+    for detail in output_details:
+        st.write(f"Label: {detail['Label']}, Confidence: {detail['Confidence']:.2f}")
