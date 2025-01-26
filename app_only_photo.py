@@ -4,7 +4,7 @@ import requests
 from PIL import Image, ImageDraw
 from face_recognition import preprocessing
 from huggingface_hub import hf_hub_download
-from datetime import datetime, timedelta
+from datetime import datetime
 import pytz  # Library for timezone handling
 
 # Define Hugging Face model details
@@ -110,15 +110,34 @@ if image_data:
 
 st.title("Retrieve Face Recognition Data")
 
-date = st.date_input("Select Date")
-start_time = st.time_input("Start Time", value=datetime.now(IST).time())  # Default to IST time
-end_time = st.time_input("End Time", value=datetime.now(IST).time())
+# Initialize session state for start_time and end_time if not already set
+if 'start_time' not in st.session_state:
+    st.session_state.start_time = datetime.now(IST).time()  # Default to current IST time
+if 'end_time' not in st.session_state:
+    st.session_state.end_time = datetime.now(IST).time()  # Default to current IST time
 
+# Time input fields that update session state
+start_time = st.time_input(
+    "Start Time", 
+    value=st.session_state.start_time, 
+    key="start_time_input"
+)
+end_time = st.time_input(
+    "End Time", 
+    value=st.session_state.end_time, 
+    key="end_time_input"
+)
+
+# Update session state on time input changes
+st.session_state.start_time = start_time
+st.session_state.end_time = end_time
+
+# Add button to fetch data
 if st.button("Get Data"):
     query_params = {
-        "date": date.strftime("%Y-%m-%d"),
-        "start_time": start_time.strftime("%H:%M:%S"),
-        "end_time": end_time.strftime("%H:%M:%S")
+        "date": st.date_input("Select Date").strftime("%Y-%m-%d"),
+        "start_time": st.session_state.start_time.strftime("%H:%M:%S"),
+        "end_time": st.session_state.end_time.strftime("%H:%M:%S")
     }
 
     response = requests.get("https://face-attendance-server-ck95.onrender.com/api/get-face-data", params=query_params)
@@ -132,6 +151,5 @@ if st.button("Get Data"):
             # Convert server timestamps to IST
             timestamp = datetime.fromisoformat(d['timestamp']).astimezone(IST).strftime("%H:%M:%S")
             st.write(f"{d['label']}     {timestamp}")
-
     else:
         st.error("Failed to fetch data.")
