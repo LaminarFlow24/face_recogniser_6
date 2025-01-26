@@ -1,15 +1,18 @@
 import streamlit as st
-import numpy as np
 import joblib
-from PIL import Image, ImageDraw, ImageFont
+import requests
+from PIL import Image, ImageDraw
 from face_recognition import preprocessing
 from huggingface_hub import hf_hub_download
+from datetime import datetime
 
-# Define the Hugging Face repository details
-REPO_ID = "Yashas2477/SE2_og"  # Replace with your Hugging Face repository
-FILENAME = "face_recogniser_100f_50e.pkl"  # Replace with your model filename
+# Define Hugging Face model details
+REPO_ID = "Yashas2477/SE2_og"
+FILENAME = "face_recogniser_100f_50e.pkl"
 
-# Cache the model download
+# Node.js server URL
+NODE_SERVER_URL = "https://face-attendance-server-ck95.onrender.com/api/store-face-data"
+
 @st.cache_data
 def download_model_from_huggingface():
     st.info("Downloading model from Hugging Face...")
@@ -21,7 +24,6 @@ def download_model_from_huggingface():
         st.error(f"Error downloading model: {e}")
         raise
 
-# Cache the model loading
 @st.cache_resource
 def load_model():
     try:
@@ -34,59 +36,97 @@ def load_model():
         st.error(f"Error loading model: {e}")
         raise
 
-# Load the cached model
 face_recogniser = load_model()
 preprocess = preprocessing.ExifOrientationNormalize()
 
-# Streamlit app
 st.title("Live Face Recognition")
-st.write("This app performs face recognition on webcam images.")
 
-# Helper function to process and predict faces
+# Store processed labels globally to avoid duplicates across frames
+if 'seen_labels' not in st.session_state:
+    st.session_state.seen_labels = set()
+
 def process_image(pil_img):
     pil_img = preprocess(pil_img)
     pil_img = pil_img.convert('RGB')
 
-    # Predict faces
     faces = face_recogniser(pil_img)
-    output_details = []
+    unique_faces = []
 
-    # Draw bounding boxes and labels
     draw = ImageDraw.Draw(pil_img)
+
     for face in faces:
-        bb = face.bb._asdict()
-        top_left = (int(bb['left']), int(bb['top']))
-        bottom_right = (int(bb['right']), int(bb['bottom']))
         label = face.top_prediction.label
         confidence = face.top_prediction.confidence
 
-        # Define colors and draw bounding box
-        color = "green" if label != "Unknown" else "red"  # Green for known, red for unknown
-        draw.rectangle([top_left, bottom_right], outline=color, width=2)
+        # Skip "Unknown" labels and duplicate labels within the session
+        if label == "Unknown" or label in st.session_state.seen_labels:
+            continue
 
-        # Draw label and confidence
+        st.session_state.seen_labels.add(label)
+
+        bb = face.bb._asdict()
+        top_left = (int(bb['left']), int(bb['top']))
+        bottom_right = (int(bb['right']), int(bb['bottom']))
+
+        color = "green"
+        draw.rectangle([top_left, bottom_right], outline=color, width=2)
         text = f"{label} ({confidence:.2f})"
         draw.text((top_left[0], top_left[1] - 10), text, fill=color)
 
-        # Store face details for display
-        output_details.append({"Label": label, "Confidence": confidence})
+        unique_faces.append({
+            "label": label,
+            "confidence": confidence,
+            "timestamp": datetime.now().isoformat()
+        })
 
-    return pil_img, output_details
+    return pil_img, unique_faces
 
-# Capture image using Streamlit's webcam input
 image_data = st.camera_input("Take a photo for face recognition")
 
 if image_data:
-    # Convert the uploaded image to a PIL Image
     pil_image = Image.open(image_data)
-
-    # Process the image for face recognition
     annotated_image, output_details = process_image(pil_image)
 
-    # Display the annotated image in Streamlit
     st.image(annotated_image, caption="Annotated Image", use_column_width=True)
 
-    # Display prediction output below the image
-    st.write("**Face Recognition Output:**")
+    st.write("*Face Recognition Output:*")
     for detail in output_details:
-        st.title(f" {detail['Label']}")
+        st.write(f"Label: {detail['label']}, Confidence: {detail['confidence']:.2f}")
+    print(output_details)
+    if output_details:
+        # Send data to Node.js server
+        response = requests.post(NODE_SERVER_URL, json={"faces": output_details})
+
+        if response.status_code == 200:
+            st.success("Data successfully stored in the database!")
+        else:
+            st.error("Failed to store data.")
+    else:
+        st.warning("No valid face data to store.")
+
+st.title("Retrieve Face Recognition Data")
+
+date = st.date_input("Select Date")
+start_time = st.time_input("Start Time")
+end_time = st.time_input("End Time")
+
+if st.button("Get Data"):
+    query_params = {
+        "date": date.strftime("%Y-%m-%d"),
+        "start_time": start_time.strftime("%H:%M:%S"),
+        "end_time": end_time.strftime("%H:%M:%S")
+    }
+
+    response = requests.get("https://face-attendance-server-ck95.onrender.com/api/get-face-data", params=query_params)
+
+    if response.status_code == 200:
+        data = response.json()
+        st.write("Total Count: ",len(data))
+        st.write("Retrieved Data:")
+
+        for d in data:
+            timestamp = datetime.fromisoformat(d['timestamp']).strftime("%H:%M:%S")
+            st.write(f"{d['label']}     {timestamp}") 
+
+    else:
+        st.error("Failed to fetch data.")
