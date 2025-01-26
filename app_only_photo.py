@@ -4,7 +4,8 @@ import requests
 from PIL import Image, ImageDraw
 from face_recognition import preprocessing
 from huggingface_hub import hf_hub_download
-from datetime import datetime
+from datetime import datetime, timedelta
+import pytz  # Library for timezone handling
 
 # Define Hugging Face model details
 REPO_ID = "Yashas2477/SE2_og"
@@ -12,6 +13,9 @@ FILENAME = "face_recogniser_100f_50e.pkl"
 
 # Node.js server URL
 NODE_SERVER_URL = "https://face-attendance-server-ck95.onrender.com/api/store-face-data"
+
+# Define IST timezone
+IST = pytz.timezone("Asia/Kolkata")
 
 @st.cache_data
 def download_model_from_huggingface():
@@ -76,7 +80,7 @@ def process_image(pil_img):
         unique_faces.append({
             "label": label,
             "confidence": confidence,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now(tz=IST).isoformat()  # Save timestamp in IST
         })
 
     return pil_img, unique_faces
@@ -107,8 +111,8 @@ if image_data:
 st.title("Retrieve Face Recognition Data")
 
 date = st.date_input("Select Date")
-start_time = st.time_input("Start Time")
-end_time = st.time_input("End Time")
+start_time = st.time_input("Start Time", value=datetime.now(IST).time())  # Default to IST time
+end_time = st.time_input("End Time", value=datetime.now(IST).time())
 
 if st.button("Get Data"):
     query_params = {
@@ -121,12 +125,13 @@ if st.button("Get Data"):
 
     if response.status_code == 200:
         data = response.json()
-        st.write("Total Count: ",len(data))
+        st.write("Total Count: ", len(data))
         st.write("Retrieved Data:")
 
         for d in data:
-            timestamp = datetime.fromisoformat(d['timestamp']).strftime("%H:%M:%S")
-            st.write(f"{d['label']}     {timestamp}") 
+            # Convert server timestamps to IST
+            timestamp = datetime.fromisoformat(d['timestamp']).astimezone(IST).strftime("%H:%M:%S")
+            st.write(f"{d['label']}     {timestamp}")
 
     else:
         st.error("Failed to fetch data.")
