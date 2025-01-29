@@ -12,7 +12,7 @@ REPO_ID = "Yashas2477/SE2_og"
 FILENAME = "face_recogniser_100f_50e.pkl"
 
 # Node.js server URL
-NODE_SERVER_URL = "https://face-attendance-server-ck95.onrender.com/api/store-face-data"
+NODE_SERVER_URL = "https://face-attendance-server.vercel.app/api/store-face-data"
 
 # Define IST timezone
 IST = pytz.timezone("Asia/Kolkata")
@@ -140,7 +140,8 @@ if st.button("Get Data"):
         "end_time": st.session_state.end_time.strftime("%H:%M:%S")
     }
 
-    response = requests.get("https://face-attendance-server-ck95.onrender.com/api/get-face-data", params=query_params)
+    response = requests.get("https://face-attendance-server.vercel.app/api/get-face-data", params=query_params)
+
 
     if response.status_code == 200:
         data = response.json()
