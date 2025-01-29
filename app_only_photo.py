@@ -5,7 +5,6 @@ from PIL import Image, ImageDraw
 from face_recognition import preprocessing
 from huggingface_hub import hf_hub_download
 from datetime import datetime
-import pytz  # Library for timezone handling
 
 # Define Hugging Face model details
 REPO_ID = "Yashas2477/SE2_og"
@@ -13,9 +12,6 @@ FILENAME = "face_recogniser_100f_50e_final.pkl"
 
 # Node.js server URL
 NODE_SERVER_URL = "https://face-attendance-server.vercel.app/api/store-face-data"
-
-# Define IST timezone
-IST = pytz.timezone("Asia/Kolkata")
 
 @st.cache_data
 def download_model_from_huggingface():
@@ -80,7 +76,7 @@ def process_image(pil_img):
         unique_faces.append({
             "label": label,
             "confidence": confidence,
-            "timestamp": datetime.now(tz=IST).isoformat()  # Save timestamp in IST
+            "timestamp": datetime.now().isoformat()
         })
 
     return pil_img, unique_faces
@@ -110,47 +106,27 @@ if image_data:
 
 st.title("Retrieve Face Recognition Data")
 
-# Initialize session state for start_time and end_time if not already set
-if 'start_time' not in st.session_state:
-    st.session_state.start_time = datetime.now(IST).time()  # Default to current IST time
-if 'end_time' not in st.session_state:
-    st.session_state.end_time = datetime.now(IST).time()  # Default to current IST time
+date = st.date_input("Select Date")
+start_time = st.time_input("Start Time")
+end_time = st.time_input("End Time")
 
-# Time input fields that update session state
-start_time = st.time_input(
-    "Start Time", 
-    value=st.session_state.start_time, 
-    key="start_time_input"
-)
-end_time = st.time_input(
-    "End Time", 
-    value=st.session_state.end_time, 
-    key="end_time_input"
-)
-
-# Update session state on time input changes
-st.session_state.start_time = start_time
-st.session_state.end_time = end_time
-
-# Add button to fetch data
 if st.button("Get Data"):
     query_params = {
-        "date": st.date_input("Select Date").strftime("%Y-%m-%d"),
-        "start_time": st.session_state.start_time.strftime("%H:%M:%S"),
-        "end_time": st.session_state.end_time.strftime("%H:%M:%S")
+        "date": date.strftime("%Y-%m-%d"),
+        "start_time": start_time.strftime("%H:%M:%S"),
+        "end_time": end_time.strftime("%H:%M:%S")
     }
 
     response = requests.get("https://face-attendance-server.vercel.app/api/get-face-data", params=query_params)
 
-
     if response.status_code == 200:
         data = response.json()
-        st.write("Total Count: ", len(data))
+        st.write("Total Count: ",len(data))
         st.write("Retrieved Data:")
 
         for d in data:
-            # Convert server timestamps to IST
-            timestamp = datetime.fromisoformat(d['timestamp']).astimezone(IST).strftime("%H:%M:%S")
-            st.write(f"{d['label']}     {timestamp}")
+            timestamp = datetime.fromisoformat(d['timestamp']).strftime("%H:%M:%S")
+            st.write(f"{d['label']}     {timestamp}") 
+
     else:
         st.error("Failed to fetch data.")
