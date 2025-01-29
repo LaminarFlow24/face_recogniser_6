@@ -9,7 +9,7 @@ import pytz  # Library for timezone handling
 
 # Define Hugging Face model details
 REPO_ID = "Yashas2477/SE2_og"
-FILENAME = "face_recogniser_100f_50e.pkl"
+FILENAME = "face_recogniser_100f_50e_final.pkl"
 
 # Node.js server URL
 NODE_SERVER_URL = "https://face-attendance-server.vercel.app/api/store-face-data"
