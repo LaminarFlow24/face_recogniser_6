@@ -13,7 +13,7 @@ def to_predictions(idx_to_class, probs):
     return [Prediction(label=idx_to_class[i], confidence=prob) for i, prob in enumerate(probs)]
 
 class FaceRecogniser:
-    def __init__(self, feature_extractor, classifier, idx_to_class, class_centers=None, unknown_threshold=0.75): ################################################################################
+    def __init__(self, feature_extractor, classifier, idx_to_class, class_centers=None, unknown_threshold=0): ################################################################################
         self.feature_extractor = feature_extractor
         self.classifier = classifier
         self.idx_to_class = idx_to_class
