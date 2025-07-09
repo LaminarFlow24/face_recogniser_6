@@ -39,7 +39,7 @@ def load_model():
 face_recogniser = load_model()
 preprocess = preprocessing.ExifOrientationNormalize()
 
-st.title("Live Face Recognition")
+st.title("Live Face Recognition Hi Help")
 
 # Store processed labels globally to avoid duplicates across frames
 if 'seen_labels' not in st.session_state:
