@@ -48,43 +48,58 @@ st.title("Face Recognition Attendance")
 if 'seen_labels' not in st.session_state:
     st.session_state.seen_labels = set()
 
+# --- START OF MODIFIED FUNCTION ---
 def process_image(pil_img):
-    """Processes an image to detect and recognize faces."""
+    """
+    Processes an image to detect all faces, draws boxes around all of them,
+    but only logs new, recognized faces.
+    """
     pil_img = preprocess(pil_img)
     pil_img = pil_img.convert('RGB')
 
     faces = face_recogniser(pil_img)
-    unique_faces = []
+    faces_to_log = []
     draw = ImageDraw.Draw(pil_img)
 
     for face in faces:
         label = face.top_prediction.label
         confidence = face.top_prediction.confidence
-
-        # Skip "Unknown" labels and duplicates within the session
-        if label == "Unknown" or label in st.session_state.seen_labels:
-            continue
-
-        st.session_state.seen_labels.add(label)
-
-        # Draw bounding box and label
         bb = face.bb._asdict()
         top_left = (int(bb['left']), int(bb['top']))
         bottom_right = (int(bb['right']), int(bb['bottom']))
-        color = "green"
+
+        # Check if the face is new and recognized
+        is_new_and_known = label != "Unknown" and label not in st.session_state.seen_labels
+
+        # Determine box color based on status
+        if is_new_and_known:
+            color = "lime"  # Green for new faces to be logged
+        elif label == "Unknown":
+            color = "red"    # Red for unknown faces
+        else:
+            color = "dodgerblue"   # Blue for recognized but already logged faces
+
+        # Draw bounding box and label for ALL faces
         draw.rectangle([top_left, bottom_right], outline=color, width=3)
         text = f"{label} ({confidence:.2f})"
-        draw.text((top_left[0], top_left[1] - 15), text, fill=color)
+        
+        # Adjust text position if it's too close to the top edge
+        text_y = top_left[1] - 15 if top_left[1] - 15 > 0 else top_left[1] + 5
+        draw.text((top_left[0], text_y), text, fill=color)
 
-        unique_faces.append({
-            "label": label,
-            "confidence": confidence,
-            "timestamp": datetime.now().isoformat()
-        })
+        # Only add new, recognized faces to the list for logging
+        if is_new_and_known:
+            st.session_state.seen_labels.add(label)
+            faces_to_log.append({
+                "label": label,
+                "confidence": confidence,
+                "timestamp": datetime.now().isoformat()
+            })
 
-    return pil_img, unique_faces
+    return pil_img, faces_to_log
+# --- END OF MODIFIED FUNCTION ---
 
-# --- START OF MODIFIED SECTION ---
+
 # Add a radio button to choose the input method
 input_option = st.radio(
     "Choose your input method:",
@@ -93,13 +108,9 @@ input_option = st.radio(
 
 image_data = None
 if input_option == 'Camera':
-    # Use the camera input
     image_data = st.camera_input("Take a photo for face recognition")
 elif input_option == 'Upload Image':
-    # Use the file uploader
     image_data = st.file_uploader("Upload an image", type=['jpg', 'jpeg', 'png'])
-
-# --- END OF MODIFIED SECTION ---
 
 if image_data:
     pil_image = Image.open(image_data)
@@ -108,25 +119,24 @@ if image_data:
     st.image(annotated_image, caption="Annotated Image", use_column_width=True)
 
     if output_details:
-        st.write("*Face Recognition Output:*")
+        st.write("*New Faces Logged:*")
         for detail in output_details:
             st.write(f"**Label:** {detail['label']}, **Confidence:** {detail['confidence']:.2f}")
 
         # Send data to Node.js server
         try:
             response = requests.post(NODE_SERVER_URL, json={"faces": output_details})
-            response.raise_for_status()  # Raise an exception for bad status codes
+            response.raise_for_status()
             st.success("Data successfully stored in the database! ✅")
         except requests.exceptions.RequestException as e:
             st.error(f"Failed to store data: {e}")
     else:
-        st.warning("No new or known faces were detected.")
+        st.warning("No new or known faces were detected to log.")
 
 # --- Data Retrieval Section ---
 st.divider()
 st.title("Retrieve Face Recognition Data")
 
-# Use columns for a cleaner layout
 col1, col2, col3 = st.columns(3)
 with col1:
     date = st.date_input("Select Date")
@@ -144,7 +154,7 @@ if st.button("Get Data"):
 
     try:
         response = requests.get("https://face-attendance-server.vercel.app/api/get-face-data", params=query_params)
-        response.raise_for_status() # Raise an exception for bad status codes
+        response.raise_for_status()
         data = response.json()
 
         st.write(f"**Total Records Found:** {len(data)}")
